@@ -15,7 +15,7 @@
     },
     {
       "src": "/((?!api/).*)",
-      "dest": "/api/20e5kq.php"
+      "dest": "/api/index.php"
     }
   ]
 }
