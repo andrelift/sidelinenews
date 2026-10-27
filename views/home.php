@@ -51,16 +51,25 @@ $heroIds = array_column($hero, 'id');
   </aside>
 </div>
 
-<?php foreach (sports() as $slug => [$label, $color]):
-    $list = array_slice(array_values(array_filter($all, fn($i) => $i['sport'] === $slug && !in_array($i['id'], $heroIds, true))), 0, 4);
-    if (count($list) < 2) continue; ?>
+<?php $n = 0; foreach (sports() as $slug => [$label, $color]):
+    $pool = array_values(array_filter($all, fn($i) => $i['sport'] === $slug && !in_array($i['id'], $heroIds, true)));
+    if (count($pool) < 3) continue;
+    $pool = array_slice($pool, 0, 12);
+    // feature = newest story that has a picture (if any in the top 8), the rest go in a list
+    $fi = 0;
+    foreach (array_slice($pool, 0, 8, true) as $k => $cand) { if (!empty($cand['image'])) { $fi = $k; break; } }
+    $feature = $pool[$fi];
+    unset($pool[$fi]);
+    $rows = array_slice(array_values($pool), 0, 4);
+    $n++; ?>
   <section class="sport-sec">
     <div class="sec-head" style="--c:<?= e($color) ?>">
-      <h2><span class="bar"></span><?= e($label) ?></h2>
+      <h2><?= sport_icon($slug) ?><?= e($label) ?></h2>
       <a href="<?= e(url("sport/$slug")) ?>">All <?= e($label) ?> →</a>
     </div>
-    <div class="grid">
-      <?php foreach ($list as $it) echo card($it, 'compact'); ?>
+    <div class="sport-layout <?= $n % 2 ? '' : 'flip' ?>">
+      <?= card($feature, 'feature') ?>
+      <div class="rows"><?php foreach ($rows as $it) echo card($it, 'row'); ?></div>
     </div>
   </section>
 <?php endforeach; ?>

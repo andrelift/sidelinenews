@@ -65,6 +65,7 @@ final class Aggregator
                 }
             }
 
+            $t0 = microtime(true);
             $bodies = $this->fetchAll($stale);
             $stats  = ['feeds' => count($this->cfg['feeds']), 'fetched' => 0, 'failed' => []];
 
@@ -73,6 +74,17 @@ final class Aggregator
                 $old  = $this->readJson($file) ?? ['items' => []];
                 $items = isset($bodies[$i]) ? $this->parse($bodies[$i], $feed) : [];
                 if ($items) {
+                    // keep images found earlier by enrichImages()
+                    $prev = [];
+                    foreach ($old['items'] ?? [] as $o) { $prev[$o['id']] = $o; }
+                    foreach ($items as &$it) {
+                        if (isset($prev[$it['id']])) {
+                            $p = $prev[$it['id']];
+                            if (!$it['image'] && !empty($p['image'])) { $it['image'] = $p['image']; }
+                            if (!empty($p['imgtry'])) { $it['imgtry'] = $p['imgtry']; }
+                        }
+                    }
+                    unset($it);
                     $this->writeJson($file, ['fetched' => time(), 'attempted' => time(), 'items' => $items]);
                     $stats['fetched']++;
                 } else {
@@ -82,6 +94,7 @@ final class Aggregator
                 }
             }
 
+            $this->enrichImages($t0);
             $stats['items'] = $this->rebuild();
             return $stats;
         } finally {
@@ -270,14 +283,107 @@ final class Aggregator
         if (!$best && preg_match('/<img[^>]+src=["\']([^"\']+)["\']/i', $html, $m)) {
             $best = html_entity_decode($m[1]);
         }
-        if (!$best) {
-            return null;
-        }
-        if (str_starts_with($best, '//')) { $best = 'https:' . $best; }
-        if (!preg_match('#^https?://#i', $best)) { return null; }
+        return $best ? $this->cleanImage($best) : null;
+    }
+
+    private function cleanImage(string $u): ?string
+    {
+        $u = trim(html_entity_decode($u));
+        if (str_starts_with($u, '//')) { $u = 'https:' . $u; }
+        if (!preg_match('#^https?://#i', $u)) { return null; }
+        if (preg_match('#(logo|default|placeholder|fallback|favicon|sprite|blank)#i', $u)) { return null; }
         // BBC serves 240px thumbs by default: ask for a bigger rendition.
-        $best = preg_replace('#(ichef\.bbci\.co\.uk/[^?]*?/)(?:240|320)/#', '${1}800/', $best);
-        return $best;
+        return preg_replace('#(ichef\.bbci\.co\.uk/[^?]*?/)(?:240|320)/#', '${1}800/', $u);
+    }
+
+    /* ---------- image enrichment (og:image from the article page) ---------- */
+
+    /** Some feeds (e.g. ESPN) ship no images. Look at the article page for og:image. */
+    private function enrichImages(float $t0): void
+    {
+        $c = $this->cfg['cache'];
+        if (empty($c['enrich_images']) || microtime(true) - $t0 > (float) ($c['enrich_deadline'] ?? 6)) {
+            return;
+        }
+        $files = $cands = [];
+        $perSport = [];
+        foreach ($this->cfg['feeds'] as $feed) {
+            $file = $this->feedFile($feed);
+            if (isset($files[$file])) { continue; }
+            $d = $this->readJson($file);
+            if (!$d) { continue; }
+            $files[$file] = $d;
+            foreach ($d['items'] as $ii => $it) {
+                if (empty($it['image']) && (empty($it['imgtry']) || time() - $it['imgtry'] > 21600)) {
+                    $cands[] = [$it['published'], $file, $ii, $it['sport']];
+                }
+            }
+        }
+        if (!$cands) { return; }
+        usort($cands, fn($a, $b) => $b[0] <=> $a[0]);
+        $max = (int) ($c['enrich_max'] ?? 30);
+        $pick = [];
+        foreach ($cands as $cand) {
+            if (count($pick) >= $max) { break; }
+            $perSport[$cand[3]] = ($perSport[$cand[3]] ?? 0) + 1;
+            if ($perSport[$cand[3]] <= 3) { $pick[] = $cand; }   // spread across sports
+        }
+        $urls = [];
+        foreach ($pick as $k => [$ts, $file, $ii]) { $urls[$k] = $files[$file]['items'][$ii]['link']; }
+        $pages = $this->fetchHeads($urls, (int) ($c['enrich_timeout'] ?? 5));
+        foreach ($pick as $k => [$ts, $file, $ii]) {
+            $img = isset($pages[$k]) ? $this->ogImage($pages[$k]) : null;
+            if ($img) { $files[$file]['items'][$ii]['image'] = $img; }
+            $files[$file]['items'][$ii]['imgtry'] = time();
+        }
+        foreach ($files as $file => $d) { $this->writeJson($file, $d); }
+    }
+
+    private function ogImage(string $html): ?string
+    {
+        foreach (['og:image:secure_url', 'og:image', 'twitter:image'] as $prop) {
+            $q = preg_quote($prop, '/');
+            if (preg_match('/<meta[^>]+(?:property|name)=["\']' . $q . '["\'][^>]*content=["\']([^"\']+)["\']/i', $html, $m)
+                || preg_match('/<meta[^>]+content=["\']([^"\']+)["\'][^>]*(?:property|name)=["\']' . $q . '["\']/i', $html, $m)) {
+                if ($img = $this->cleanImage($m[1])) { return $img; }
+            }
+        }
+        return null;
+    }
+
+    /** Downloads only the <head> of each page (parallel, size-capped). */
+    private function fetchHeads(array $urls, int $timeout): array
+    {
+        if (!$urls || !function_exists('curl_multi_init')) { return []; }
+        $mh = curl_multi_init();
+        $bufs = $handles = [];
+        foreach ($urls as $k => $u) {
+            $bufs[$k] = '';
+            $ch = curl_init($u);
+            curl_setopt_array($ch, [
+                CURLOPT_FOLLOWLOCATION => true,
+                CURLOPT_MAXREDIRS      => 3,
+                CURLOPT_TIMEOUT        => $timeout,
+                CURLOPT_CONNECTTIMEOUT => 3,
+                CURLOPT_USERAGENT      => 'Mozilla/5.0 (compatible; SidelineBot/1.0)',
+                CURLOPT_ENCODING       => '',
+                CURLOPT_PROTOCOLS      => CURLPROTO_HTTP | CURLPROTO_HTTPS,
+                CURLOPT_HTTPHEADER     => ['Accept: text/html,application/xhtml+xml'],
+                CURLOPT_WRITEFUNCTION  => function ($ch, $data) use (&$bufs, $k) {
+                    $bufs[$k] .= $data;
+                    return (strlen($bufs[$k]) > 300000 || stripos($bufs[$k], '</head>') !== false) ? 0 : strlen($data);
+                },
+            ]);
+            curl_multi_add_handle($mh, $ch);
+            $handles[$k] = $ch;
+        }
+        do {
+            $status = curl_multi_exec($mh, $running);
+            if ($running) { curl_multi_select($mh, 1.0); }
+        } while ($running && $status === CURLM_OK);
+        foreach ($handles as $ch) { curl_multi_remove_handle($mh, $ch); }
+        curl_multi_close($mh);
+        return array_filter($bufs, fn($b) => $b !== '');
     }
 
     private function text(string $s): string

@@ -21,6 +21,11 @@ return [
     'cache' => [
         'dir'                => $cacheDir,
         'fetch_timeout'      => getenv('VERCEL') ? 6 : 10,   // seconds per feed
+        // Some feeds (ESPN) have no images: read og:image from the article page instead.
+        'enrich_images'      => true,
+        'enrich_max'         => 30,                          // pages checked per refresh
+        'enrich_timeout'     => getenv('VERCEL') ? 3 : 5,
+        'enrich_deadline'    => getenv('VERCEL') ? 4 : 20,   // skip enrichment if the refresh already took longer (s)
         'ttl'                => 900,   // seconds between feed refreshes (15 min)
         'max_age_days'       => 10,    // ignore stories older than this
         'max_items'          => 600,   // total stories kept

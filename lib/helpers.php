@@ -129,3 +129,22 @@ function send_security_headers(): void
     header('X-Frame-Options: SAMEORIGIN');
     header("Content-Security-Policy: default-src 'self'; img-src 'self' https: data:; style-src 'self' 'unsafe-inline'; script-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'");
 }
+
+function sport_icon(string $slug): string
+{
+    static $p = [
+        'football'   => '<circle cx="12" cy="12" r="9"/><path d="M12 8.2l3.4 2.5-1.3 4H9.9l-1.3-4z"/><path d="M12 8.2V3.2M15.4 10.7l4.6-1.6M14.1 14.7l2.9 3.9M9.9 14.7l-2.9 3.9M8.6 10.7L4 9.1"/>',
+        'basketball' => '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3v18M5.6 5.6c3 3 3 10.8 0 12.8M18.4 5.6c-3 3-3 10.8 0 12.8"/>',
+        'nfl'        => '<ellipse cx="12" cy="12" rx="10" ry="6" transform="rotate(-35 12 12)"/><path d="M9.2 14.8l5.6-5.6M10.8 11.6l1.6 1.6M12.8 9.6l1.6 1.6M8.6 13.4l1.6 1.6"/>',
+        'baseball'   => '<circle cx="12" cy="12" r="9"/><path d="M6 4.5c2.5 2.5 2.5 12.5 0 15M18 4.5c-2.5 2.5-2.5 12.5 0 15M7.5 8.5l2 .5M7.8 12h2.2M7.5 15.5l2-.5M16.5 8.5l-2 .5M16.2 12H14M16.5 15.5l-2-.5"/>',
+        'hockey'     => '<path d="M5 3l8 14h6"/><path d="M5 3h3"/><ellipse cx="17" cy="20" rx="4" ry="1.6"/>',
+        'tennis'     => '<circle cx="12" cy="12" r="9"/><path d="M4 6.5c4 1.5 6 5 6 11.5M20 17.5c-4-1.5-6-5-6-11.5"/>',
+        'f1'         => '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="2.5"/><path d="M3.3 10.5l6.2.8M20.7 10.5l-6.2.8M12 14.5V21"/>',
+        'cricket'    => '<path d="M4 20L14 10"/><path d="M12.5 8.5l3-3 3 3-3 3z"/><circle cx="18" cy="18" r="2.5"/>',
+        'rugby'      => '<ellipse cx="12" cy="12" rx="10" ry="6.5" transform="rotate(-45 12 12)"/><path d="M8 16l8-8M10 10.5l3 3"/>',
+        'golf'       => '<path d="M9 21V3l8 4-8 4"/><path d="M4 21h12"/><circle cx="19" cy="20" r="1.3"/>',
+        'boxing'     => '<path d="M7 11V6.5A3.5 3.5 0 0 1 10.5 3h3A5.5 5.5 0 0 1 19 8.5V13a6 6 0 0 1-6 6h-2.5A3.5 3.5 0 0 1 7 15.5z"/><path d="M7 15H4v4h6M11 12h5"/>',
+    ];
+    $d = $p[$slug] ?? '<circle cx="12" cy="12" r="9"/><path d="M3 12h18"/>';
+    return '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' . $d . '</svg>';
+}
