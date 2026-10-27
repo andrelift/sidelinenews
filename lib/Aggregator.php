@@ -139,7 +139,7 @@ final class Aggregator
                     CURLOPT_RETURNTRANSFER => true,
                     CURLOPT_FOLLOWLOCATION => true,
                     CURLOPT_MAXREDIRS      => 3,
-                    CURLOPT_TIMEOUT        => 10,
+                    CURLOPT_TIMEOUT        => (int) ($this->cfg['cache']['fetch_timeout'] ?? 10),
                     CURLOPT_CONNECTTIMEOUT => 5,
                     CURLOPT_USERAGENT      => $ua,
                     CURLOPT_ENCODING       => '',
@@ -168,7 +168,7 @@ final class Aggregator
             return $out;
         }
 
-        $ctx = stream_context_create(['http' => ['timeout' => 10, 'user_agent' => $ua, 'follow_location' => 1]]);
+        $ctx = stream_context_create(['http' => ['timeout' => (int) ($this->cfg['cache']['fetch_timeout'] ?? 10), 'user_agent' => $ua, 'follow_location' => 1]]);
         foreach ($feeds as $i => $f) {
             $body = @file_get_contents($f['url'], false, $ctx);
             if (is_string($body) && $body !== '') {

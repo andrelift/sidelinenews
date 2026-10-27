@@ -17,7 +17,7 @@ function show(string $view, array $vars, array $meta, array $all, Aggregator $ag
 {
     http_response_code($status);
     header('Content-Type: text/html; charset=utf-8');
-    header('Cache-Control: public, max-age=60');
+    header('Cache-Control: public, max-age=60, s-maxage=300, stale-while-revalidate=900');
     $content = render($view, $vars + ['all' => $all]);
     echo render('layout', $meta + ['content' => $content, 'all' => $all, 'built' => $agg->builtAt()]);
     exit;

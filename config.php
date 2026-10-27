@@ -3,6 +3,12 @@
  * SIDELINE — configuration.
  * Edit this file to rename the site, add sports, or add/remove RSS feeds.
  */
+// Vercel (and other read-only hosts) only allow writing to the temp dir.
+$cacheDir = __DIR__ . '/cache';
+if (getenv('VERCEL') || !is_writable($cacheDir)) {
+    $cacheDir = sys_get_temp_dir() . '/sideline-cache';
+}
+
 return [
     'site' => [
         'name'     => 'Sideline',
@@ -13,7 +19,8 @@ return [
     ],
 
     'cache' => [
-        'dir'                => __DIR__ . '/cache',
+        'dir'                => $cacheDir,
+        'fetch_timeout'      => getenv('VERCEL') ? 6 : 10,   // seconds per feed
         'ttl'                => 900,   // seconds between feed refreshes (15 min)
         'max_age_days'       => 10,    // ignore stories older than this
         'max_items'          => 600,   // total stories kept
@@ -21,7 +28,7 @@ return [
     ],
 
     // Set a secret to enable /refresh?key=SECRET (handy for web cron services). Empty = disabled.
-    'refresh_key' => '',
+    'refresh_key' => getenv('REFRESH_KEY') ?: '',
 
     // true  => /sport/football   (needs .htaccess / nginx rewrite, or php -S)
     // false => /index.php?route=sport/football (works anywhere)
