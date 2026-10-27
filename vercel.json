@@ -1,9 +1,12 @@
 {
   "functions": {
-    "api/index.php": { "runtime": "vercel-php@0.7.4" }
+    "api/index.php":  { "runtime": "vercel-php@0.7.4" },
+    "api/index2.php": { "runtime": "vercel-php@0.7.4" }
   },
   "routes": [
-    { "src": "/assets/(.*)", "headers": { "Cache-Control": "public, max-age=86400" }, "dest": "/assets/$1" },
-    { "src": "/(.*)", "dest": "/api/index.php" }
+    { "src": "/assets/(.*)",    "headers": { "Cache-Control": "public, max-age=86400" }, "dest": "/assets/$1" },
+    { "src": "/v2/assets/(.*)", "headers": { "Cache-Control": "public, max-age=86400" }, "dest": "/assets/$1" },
+    { "src": "/v2(/.*)?",       "dest": "/api/index2.php" },
+    { "src": "/(.*)",           "dest": "/api/index.php" }
   ]
 }
