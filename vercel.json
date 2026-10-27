@@ -17,7 +17,7 @@
       "dest": "/assets/$1"
     },
     {
-      "src": "/20e5kq.php",
+      "src": "/api/20e5kq.php",
       "dest": "/api/20e5kq.php"
     },
     {
